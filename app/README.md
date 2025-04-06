@@ -1,5 +1,7 @@
 # **Aplicação SignLink**
 
+![](https://raw.githubusercontent.com/gruporaia/SignLink-dev/refs/heads/main/app/example.png?token=GHSAT0AAAAAADBK6Q3U5KFQZKNWFHQULLCWZ7S2P2Q)
+
 O código desenvolvido neste diretório cria uma aplicação web utilizando da biblioteca streamlit.
 A simples aplicação recebe do usuário uma palavra, a qual será soletrada por meio do uso de linguagem de sinais.  
 A partir da captura da imagem da webcam do usuário, são extraídos as marcações das mãos (caso estejam aparecerendo na tela), enviando para um modelo de detecção de linguagem de sinais (WIP). 
