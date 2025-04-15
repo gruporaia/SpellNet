@@ -1,6 +1,6 @@
-
 import av
 import cv2
+import time 
 import queue 
 import logging
 
@@ -9,18 +9,30 @@ import mediapipe as mp
 
 import streamlit as st
 
+from tensorflow import keras 
+
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
-from video_processing import get_letter
+from video_processing import get_letter, get_random_letter, crop_hand_region
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.FATAL)
+logging.basicConfig(level=logging.INFO)
 
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
+model_path = './model/b0_model.keras'
 
 st.set_page_config(page_title="SingLink", layout="centered")
+
+# Caching model
+cache_key = 'signlink_model'
+if cache_key in st.session_state:
+    model = st.session_state[cache_key]
+else:
+    model = keras.models.load_model(model_path)
+    model.predict(np.zeros((1, 244, 244, 3))) # Avoid delay during first real frame inference
+    st.session_state[cache_key] = model 
 
 # Instruction sidebar
 st.sidebar.title("Instruções")
@@ -47,48 +59,50 @@ option = st.selectbox(
 # Initilizing hand detection mediapipe modules
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
-hands = mp_hands.Hands(static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5)
+hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
+
+last_infer_time = 0
+inference_interval = 0.5 # seconds
 
 def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-    # Function to process the video stream
-    logger.info("Callback initialized")
+    global last_infer_time
     try:
         img = frame.to_ndarray(format="bgr24")
-        logger.info(f"Frame shape: {img.shape}, dtype: {img.dtype}")
 
         # Convert the image to RGB (MediaPipe requirement)
         image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        logger.info("Successfully converted the image")
 
         # Process the image with mediapipe hand module
         results = hands.process(image_rgb)
-        logger.info(f"Results: {results}")
 
-        # Get the handmark of the first hand
-        hand_landmarks = results.multi_hand_landmarks[0]
-        
-        # Process the hand landmark with the detection model
-        letter = get_letter(hand_landmarks)
-        logger.info(f"letter: {letter}")
-
-        # If hand is detected, draw the landmarks 
+        processed_img = img
         if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            # If hand is detected, draw the landmarks 
+            hand_landmarks = results.multi_hand_landmarks[0]
+            mp_drawing.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
-        # Convert the output image
-        processed_img = cv2.cvtColor(img, cv2.IMREAD_COLOR)
-        logger.info(f"Frame shape: {processed_img.shape}, dtype: {processed_img.dtype}")
+            # Convert the output image
+            processed_img = cv2.cvtColor(img, cv2.IMREAD_COLOR)
+            cropped_hand = crop_hand_region(processed_img, hand_landmarks)
 
-        # Updating the queue, putting the letter that was discovered by the detection model 
-        if not callback_results.empty():
-            callback_results.get()
-        callback_results.put(letter)
-        
+            if cropped_hand is not None and cropped_hand.size > 0:
+                # Skipping inference every 2 out of 3 frames
+                current_time = time.time()
+                if current_time - last_infer_time > inference_interval:
+                    letter = get_letter(model, hand_landmarks, img)
+                    last_infer_time = current_time
+
+                    # Updating the queue, putting the letter that was discovered by the detection model 
+                    if not callback_results.empty():
+                        callback_results.get()
+                    callback_results.put(letter)
+                else:
+                    logger.info("Skipping frame")
+            
         return av.VideoFrame.from_ndarray(processed_img, format="bgr24")
 
     except Exception as e:
-        logger.warning(f"Error prcoessing image: {e}")
+        logger.warning(f"Error processing image: {e}")
         return frame
 
 def define_baseline(palavra):
@@ -97,7 +111,7 @@ def define_baseline(palavra):
     st.session_state["current_letter_index"] = 0 
     st.session_state["victory_mapping"] = {i: False for i in range(len(palavra))}
     st.session_state["colors"] = {(i, letter): red  for i, letter in enumerate(palavra)}
-    
+
 
 def verify(result):
     # Verify if the letter is valid
@@ -125,7 +139,7 @@ def verify(result):
         st.session_state["victory_mapping"][current_index] = True
         st.session_state["current_letter_index"] += 1
 
-def put_word(word_area):
+def put_word(word_area, cur_letter):
     # Adding letter by letter, each one with the mapped color
     letters_html = " ".join([
         f"<span style='font-size:24px; font-weight:bold; color:{st.session_state['colors'].get((i, letra), '#FF5733')}'>{letra}</span>"
@@ -137,8 +151,9 @@ def put_word(word_area):
         unsafe_allow_html=True
     )
 
-   
+    letter_area.markdown(f'##### Letra soletrada: {cur_letter}')
 
+   
 if palavra:
     # Only if word is new we want to get the inital cache data
     if (
@@ -149,8 +164,9 @@ if palavra:
     
     # Where input word will be displayed
     word_area = st.empty()
+    letter_area = st.empty()
 
-    put_word(word_area)
+    put_word(word_area, "")
 
     ctx = webrtc_streamer(
         key="webcam",
@@ -170,10 +186,12 @@ if palavra:
         while True:
             # Getting the letter from detection model
             gest = callback_results.get()
+            
             # Verify if this letter satisfies the current application state 
             verify(gest)
+            
             # Display the word again, changing letter to green if valid
-            put_word(word_area)
+            put_word(word_area, gest)
             
             # After all letters of the word are covered, we display victory message
             if all(st.session_state["victory_mapping"].values()):

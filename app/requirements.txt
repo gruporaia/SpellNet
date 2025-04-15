@@ -4,3 +4,4 @@ opencv-python
 streamlit-webrtc
 streamlit-autorefresh
 mediapipe==0.10.9
+tensorflow==2.19.0
