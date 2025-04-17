@@ -4,9 +4,13 @@ import string
 import random 
 import cv2
 import numpy as np
+from tensorflow.keras.applications.mobilenet import preprocess_input
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
+
+max_checks = 50
+check = 0 
 
 def get_random_letter(hand_landmarks):
     return random.choice(string.ascii_uppercase)
@@ -38,19 +42,25 @@ def crop_hand_region(image, hand_landmarks, padding=20):
     # Crop and return
     return image[y_min:y_max, x_min:x_max]
 
-def preprocess(image_array, hand_landmark, size):
-    image_array = crop_hand_region(image_array, hand_landmark)
+def preprocess(image_array, size):
+    global check 
     width, height = size
-    resized_image = cv2.resize(image_array, (width, height))
+    resized_image = cv2.resize(preprocess_input(image_array), (width, height))
+    if check < max_checks:
+        logger.warning('Saving image')
+        cv2.imwrite(f'image_test_{check}.jpg', resized_image)
+        check += 1
+
     return np.expand_dims(resized_image, axis=0)
 
 def post_process_result(result):
     alphabet = list(string.ascii_uppercase)
+    logger.warning(result)
     predicted_index = np.argmax(result)
     return alphabet[predicted_index]
 
-def get_letter(model, hand_landmarks, image_array):
-    input_image = preprocess(image_array, hand_landmarks, (244, 244))
+def get_letter(model, image_array):
+    input_image = preprocess(image_array, (200, 200))
     prediction = model.predict(input_image, verbose=0)
     predicted_letter = post_process_result(prediction)
     return predicted_letter

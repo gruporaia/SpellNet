@@ -16,12 +16,12 @@ from streamlit_webrtc import webrtc_streamer, WebRtcMode
 from video_processing import get_letter, get_random_letter, crop_hand_region
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
-model_path = './model/b0_model.keras'
+model_path = './model/mobilenet_v2.keras'
 
 st.set_page_config(page_title="SingLink", layout="centered")
 
@@ -31,7 +31,7 @@ if cache_key in st.session_state:
     model = st.session_state[cache_key]
 else:
     model = keras.models.load_model(model_path)
-    model.predict(np.zeros((1, 244, 244, 3))) # Avoid delay during first real frame inference
+    model.predict(np.zeros((1, 200, 200, 3))) # Avoid delay during first real frame inference
     st.session_state[cache_key] = model 
 
 # Instruction sidebar
@@ -62,7 +62,7 @@ mp_drawing = mp.solutions.drawing_utils
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
 
 last_infer_time = 0
-inference_interval = 0.5 # seconds
+inference_interval = 1 # seconds
 
 def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
     global last_infer_time
@@ -75,23 +75,23 @@ def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
         # Process the image with mediapipe hand module
         results = hands.process(image_rgb)
 
-        processed_img = img
+        processed_img = img.copy()
         if results.multi_hand_landmarks:
             # If hand is detected, draw the landmarks 
             hand_landmarks = results.multi_hand_landmarks[0]
-            mp_drawing.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            mp_drawing.draw_landmarks(processed_img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
 
             # Convert the output image
-            processed_img = cv2.cvtColor(img, cv2.IMREAD_COLOR)
-            cropped_hand = crop_hand_region(processed_img, hand_landmarks)
+            processed_img = cv2.cvtColor(processed_img, cv2.IMREAD_COLOR)
+            cropped_hand = crop_hand_region(img, hand_landmarks)
 
             if cropped_hand is not None and cropped_hand.size > 0:
                 # Skipping inference every 2 out of 3 frames
                 current_time = time.time()
                 if current_time - last_infer_time > inference_interval:
-                    letter = get_letter(model, hand_landmarks, img)
+                    letter = get_letter(model, img)
                     last_infer_time = current_time
-
+                    logger.warning(f"Letter: {letter}")
                     # Updating the queue, putting the letter that was discovered by the detection model 
                     if not callback_results.empty():
                         callback_results.get()
