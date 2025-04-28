@@ -94,38 +94,6 @@ def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
                  
         return av.VideoFrame.from_ndarray(final_displayed_image, format="bgr24")
 
-        # # Convert the image to RGB (MediaPipe requirement)
-        # image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # # Process the image with mediapipe hand module
-        # results = hands.process(image_rgb)
-
-        # processed_img = img.copy()
-        # if results.multi_hand_landmarks:
-        #     # If hand is detected, draw the landmarks 
-        #     hand_landmarks = results.multi_hand_landmarks[0]
-        #     mp_drawing.draw_landmarks(processed_img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-        #     # Convert the output image
-        #     processed_img = cv2.cvtColor(processed_img, cv2.IMREAD_COLOR)
-        #     cropped_hand = crop_hand_region(img, hand_landmarks)
-
-        #     if cropped_hand is not None and cropped_hand.size > 0:
-        #         # Skipping inference every 2 out of 3 frames
-        #         current_time = time.time()
-        #         if current_time - last_infer_time > inference_interval:
-        #             letter = get_letter(model, img)
-        #             last_infer_time = current_time
-        #             logger.warning(f"Letter: {letter}")
-        #             # Updating the queue, putting the letter that was discovered by the detection model 
-        #             if not callback_results.empty():
-        #                 callback_results.get()
-        #             callback_results.put(letter)
-        #         else:
-        #             logger.info("Skipping frame")
-            
-        # return av.VideoFrame.from_ndarray(processed_img, format="bgr24")
-
     except Exception as e:
         logger.warning(f"Error processing image: {e}")
         return frame
