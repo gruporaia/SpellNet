@@ -13,7 +13,9 @@ from tensorflow import keras
 
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
-from video_processing import get_letter, get_random_letter, crop_hand_region
+from video_processing import get_letter, get_random_letter
+from preprocessing.signlink_preprocessing import SignLinkPreprocessing, SignLinkPreprocessingResponse
+from tensorflow.keras.applications.mobilenet import preprocess_input
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
@@ -57,9 +59,11 @@ option = st.selectbox(
 )
 
 # Initilizing hand detection mediapipe modules
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5)
+preprocesing = SignLinkPreprocessing(
+    final_preprocessing_fn=preprocess_input,
+    max_num_hands=2,
+    min_detection_confidence=0.5
+)
 
 last_infer_time = 0
 inference_interval = 1 # seconds
@@ -68,38 +72,59 @@ def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
     global last_infer_time
     try:
         img = frame.to_ndarray(format="bgr24")
+        final_displayed_image = img.copy()
 
-        # Convert the image to RGB (MediaPipe requirement)
-        image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # Process the image with mediapipe hand module
-        results = hands.process(image_rgb)
-
-        processed_img = img.copy()
-        if results.multi_hand_landmarks:
-            # If hand is detected, draw the landmarks 
-            hand_landmarks = results.multi_hand_landmarks[0]
-            mp_drawing.draw_landmarks(processed_img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-            # Convert the output image
-            processed_img = cv2.cvtColor(processed_img, cv2.IMREAD_COLOR)
-            cropped_hand = crop_hand_region(img, hand_landmarks)
-
-            if cropped_hand is not None and cropped_hand.size > 0:
-                # Skipping inference every 2 out of 3 frames
-                current_time = time.time()
-                if current_time - last_infer_time > inference_interval:
-                    letter = get_letter(model, img)
-                    last_infer_time = current_time
-                    logger.warning(f"Letter: {letter}")
-                    # Updating the queue, putting the letter that was discovered by the detection model 
-                    if not callback_results.empty():
-                        callback_results.get()
-                    callback_results.put(letter)
-                else:
-                    logger.info("Skipping frame")
+        preprocessing_response: SignLinkPreprocessingResponse = preprocesing.model_input_image_full_preprocessing(img)
+        if preprocessing_response.final_image_has_hand_landmark:
+            final_displayed_image = preprocessing_response.image_with_hand_landmarks
             
-        return av.VideoFrame.from_ndarray(processed_img, format="bgr24")
+            # Skipping inference every 2 out of 3 frames
+            current_time = time.time()
+            if current_time - last_infer_time > inference_interval:
+                letter = get_letter(model, preprocessing_response.model_input_image)
+                
+                last_infer_time = current_time
+                logger.warning(f"Letter: {letter}")
+                # Updating the queue, putting the letter that was discovered by the detection model 
+                if not callback_results.empty():
+                    callback_results.get()
+                callback_results.put(letter)
+            else:
+                logger.info("Skipping frame")
+                 
+        return av.VideoFrame.from_ndarray(final_displayed_image, format="bgr24")
+
+        # # Convert the image to RGB (MediaPipe requirement)
+        # image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # # Process the image with mediapipe hand module
+        # results = hands.process(image_rgb)
+
+        # processed_img = img.copy()
+        # if results.multi_hand_landmarks:
+        #     # If hand is detected, draw the landmarks 
+        #     hand_landmarks = results.multi_hand_landmarks[0]
+        #     mp_drawing.draw_landmarks(processed_img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+        #     # Convert the output image
+        #     processed_img = cv2.cvtColor(processed_img, cv2.IMREAD_COLOR)
+        #     cropped_hand = crop_hand_region(img, hand_landmarks)
+
+        #     if cropped_hand is not None and cropped_hand.size > 0:
+        #         # Skipping inference every 2 out of 3 frames
+        #         current_time = time.time()
+        #         if current_time - last_infer_time > inference_interval:
+        #             letter = get_letter(model, img)
+        #             last_infer_time = current_time
+        #             logger.warning(f"Letter: {letter}")
+        #             # Updating the queue, putting the letter that was discovered by the detection model 
+        #             if not callback_results.empty():
+        #                 callback_results.get()
+        #             callback_results.put(letter)
+        #         else:
+        #             logger.info("Skipping frame")
+            
+        # return av.VideoFrame.from_ndarray(processed_img, format="bgr24")
 
     except Exception as e:
         logger.warning(f"Error processing image: {e}")
