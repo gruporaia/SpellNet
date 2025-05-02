@@ -1,8 +1,10 @@
 import av
+import os
 import cv2
 import time 
 import queue 
 import logging
+import base64
 
 import numpy as np
 import mediapipe as mp
@@ -23,7 +25,7 @@ logging.basicConfig(level=logging.WARNING)
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
-model_path = './model/mobilenet_aug.keras'
+model_path = './model/mobilenet_with_preprocessing.keras'
 
 st.set_page_config(page_title="SingLink", layout="centered")
 
@@ -58,6 +60,13 @@ option = st.selectbox(
     ["ASL (American Sign Language)", "LIBRAS (Linguagem Brasileira de Sinais)"]
 )
 
+if option == 'ASL (American Sign Language':
+    st.session_state['language'] = 'asl'
+elif option == 'LIBRAS (Linguagem Brasileira de Sinais)':
+    st.session_state['language'] = 'libras'
+else:
+    st.session_state['language'] = 'asl'
+
 # Initilizing hand detection mediapipe modules
 preprocesing = SignLinkPreprocessing(
     final_preprocessing_fn=preprocess_input,
@@ -81,7 +90,7 @@ def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
             # Skipping inference every 2 out of 3 frames
             current_time = time.time()
             if current_time - last_infer_time > inference_interval:
-                letter = get_letter(model, preprocessing_response.model_input_image)
+                letter = get_letter(model, np.expand_dims(preprocessing_response.model_input_image, axis=0))
                 
                 last_infer_time = current_time
                 logger.warning(f"Letter: {letter}")
@@ -106,18 +115,27 @@ def define_baseline(palavra):
     st.session_state["colors"] = {(i, letter): red  for i, letter in enumerate(palavra)}
 
 
-def verify(result):
-    # Verify if the letter is valid
-
+def get_current_index():
     # Get current letter: idicates in which state of the word the user is
-    current_index = st.session_state["current_letter_index"]
+    return st.session_state["current_letter_index"]
+
+def get_current_letter():
+    current_index = get_current_index()
 
     # In case user already finished the game
     if current_index >= len(st.session_state["word"]):
         return 
     
-    letter = st.session_state["word"][current_index]
+    return st.session_state["word"][current_index]
 
+def verify(result):
+    # Verify if the letter is valid
+    current_index = get_current_index()
+    letter = get_current_letter()
+    
+    if letter is None:
+        return 
+    
     # Setting the session cached data
     # If the the returned letter from the detection model is the same as the letter to be spelled
     # and if the current letter is not yet successfully spelled
@@ -132,7 +150,25 @@ def verify(result):
         st.session_state["victory_mapping"][current_index] = True
         st.session_state["current_letter_index"] += 1
 
-def put_word(word_area, cur_letter):
+
+def get_sample_image():
+    # Get current letter: idicates in which state of the word the user is
+    letter = get_current_letter()
+    if letter is not None:
+        letter = letter.lower()
+
+        language = st.session_state['language']
+        logger.warning(f'Language option: {language}')
+
+        path = {file.split('.')[0]: file for file in os.listdir(os.path.join('samples', language))}
+        if letter in path:
+            logger.warning(f"Path: {os.path.join('samples', language, path[letter])}")
+            with open(os.path.join('samples', language, path[letter]), 'rb') as f:
+                b64_data = base64.b64encode(f.read()).decode()
+
+            return b64_data
+
+def put_word(word_area, cur_letter, sample_image_hover_html):
     # Adding letter by letter, each one with the mapped color
     letters_html = " ".join([
         f"<span style='font-size:24px; font-weight:bold; color:{st.session_state['colors'].get((i, letra), '#FF5733')}'>{letra}</span>"
@@ -143,10 +179,46 @@ def put_word(word_area, cur_letter):
         f"### Palavra soletradada: {letters_html}",
         unsafe_allow_html=True
     )
+    image_base64 = get_sample_image()
+    sample_area.markdown(sample_image_hover_html.format(image_base64=image_base64), unsafe_allow_html=True)
 
     letter_area.markdown(f'##### Letra soletrada: {cur_letter}')
 
-   
+sample_image_hover_html = """
+<style>
+.tooltip {{
+  cursor: pointer;
+  font-weight: bold;
+  color: #ffb645;
+}}
+
+.tooltip .tooltip-image {{
+  visibility: hidden;
+  width: 200px;
+  position: absolute;
+  z-index: 1;
+  top: 100%;
+  left: 50%;
+  margin-left: -100px;
+  border: 1px solid #ccc;
+  background-color: white;
+  padding: 5px;
+  box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+}}
+
+.tooltip:hover .tooltip-image {{
+  visibility: visible;
+}}
+</style>
+
+<div class="tooltip">
+  Precisa de uma dica para fazer a letra? Passe mouse aqui!
+  <div class="tooltip-image">
+    <img src="data:image/png;base64,{image_base64}" width="200">
+  </div>
+</div>
+"""
+
 if palavra:
     # Only if word is new we want to get the inital cache data
     if (
@@ -158,8 +230,9 @@ if palavra:
     # Where input word will be displayed
     word_area = st.empty()
     letter_area = st.empty()
+    sample_area = st.empty()
 
-    put_word(word_area, "")
+    put_word(word_area, "", sample_image_hover_html)
 
     ctx = webrtc_streamer(
         key="webcam",
@@ -184,7 +257,7 @@ if palavra:
             verify(gest)
             
             # Display the word again, changing letter to green if valid
-            put_word(word_area, gest)
+            put_word(word_area, gest, sample_image_hover_html)
             
             # After all letters of the word are covered, we display victory message
             if all(st.session_state["victory_mapping"].values()):
