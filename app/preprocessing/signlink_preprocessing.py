@@ -189,7 +189,7 @@ class SignLinkPreprocessing:
         if self.show_img:
             self._show_image(final_image, title='final image')
 
-        return np.expand_dims(final_image, axis=0)
+        return final_image 
 
     def model_input_image_full_preprocessing(self, image_array):
         """
