@@ -27,7 +27,7 @@ green = "#33FF70"
 red = "#FF5733"
 model_path = './model/mobilenet_landmarks.keras'
 
-st.set_page_config(page_title="SingLink", layout="centered")
+st.set_page_config(page_title="SignLink", layout="centered")
 
 # Caching model
 cache_key = 'signlink_model'
@@ -35,7 +35,7 @@ if cache_key in st.session_state:
     model = st.session_state[cache_key]
 else:
     model = keras.models.load_model(model_path)
-    model.predict(np.zeros((1, 200, 200, 3))) # Avoid delay during first real frame inference
+    model.predict(np.zeros((1, 224, 224, 3))) # Avoid delay during first real frame inference
     st.session_state[cache_key] = model 
 
 # Instruction sidebar

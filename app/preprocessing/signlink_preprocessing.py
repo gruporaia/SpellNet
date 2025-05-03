@@ -54,8 +54,8 @@ class SignLinkPreprocessing:
             max_num_hands: int = 1,
             min_detection_confidence: float = 0.5,
             padding: int = 100,
-            width: int = 200,
-            height: int = 200,
+            width: int = 224,
+            height: int = 224,
             show_img_through_process: bool = False
         ):
         """
@@ -66,8 +66,8 @@ class SignLinkPreprocessing:
             max_num_hands (int): Max number of hands to detect. Defaults to 1.
             min_detection_confidence (float): Minimum detection confidence. Defaults to 0.5.
             padding (int): Pixels to pad around detected hand. Defaults to 100.
-            width (int): Output width after resizing. Defaults to 200.
-            height (int): Output height after resizing. Defaults to 200.
+            width (int): Output width after resizing. Defaults to 224.
+            height (int): Output height after resizing. Defaults to 224.
             show_img_through_process (bool): If True, shows intermediate images.
         """
         self.final_preprocessing_fn = final_preprocessing_fn if final_preprocessing_fn is not None else lambda x: x

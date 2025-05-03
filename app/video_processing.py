@@ -11,7 +11,7 @@ def get_random_letter(hand_landmarks):
     return random.choice(string.ascii_uppercase)
 
 def post_process_result(result):
-    alphabet = list(string.ascii_uppercase)
+    alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y']
     logger.warning(result)
     predicted_index = np.argmax(result)
     return alphabet[predicted_index]
