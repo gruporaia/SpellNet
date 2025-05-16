@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.WARNING)
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
-model_path = './model/mobilenet_padronizado.keras'
+model_path = './model/mobilenet_padronizado_viguini.keras'
 
 st.set_page_config(page_title="SignLink", layout="centered")
 
