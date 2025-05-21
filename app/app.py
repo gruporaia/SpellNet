@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.WARNING)
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
-model_path = './model/mobilenet_padronizado_viguini.keras'
+model_path = './model/mobilenet_cecilia_aug_heavy.keras'
 
 st.set_page_config(page_title="SignLink", layout="centered")
 
@@ -176,7 +176,7 @@ def put_word(word_area, cur_letter, sample_image_hover_html):
     ])
 
     word_area.markdown(
-        f"### Palavra soletradada: {letters_html}",
+        f"### Palavra soletrada: {letters_html}",
         unsafe_allow_html=True
     )
     image_base64 = get_sample_image()
