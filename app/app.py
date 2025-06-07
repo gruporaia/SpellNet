@@ -25,18 +25,11 @@ logging.basicConfig(level=logging.WARNING)
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
-model_path = './model/mobilenet_cecilia_aug_heavy.keras'
 
 st.set_page_config(page_title="SignLink", layout="centered")
 
-# Caching model
-cache_key = 'signlink_model'
-if cache_key in st.session_state:
-    model = st.session_state[cache_key]
-else:
-    model = keras.models.load_model(model_path)
-    model.predict(np.zeros((1, 224, 224, 3))) # Avoid delay during first real frame inference
-    st.session_state[cache_key] = model 
+if 'language' not in st.session_state:
+    st.session_state['language'] = 'asl'
 
 # Instruction sidebar
 st.sidebar.title("Instruções")
@@ -60,12 +53,28 @@ option = st.selectbox(
     ["ASL (American Sign Language)", "LIBRAS (Linguagem Brasileira de Sinais)"]
 )
 
-if option == 'ASL (American Sign Language':
+
+if option == 'ASL (American Sign Language)':
     st.session_state['language'] = 'asl'
 elif option == 'LIBRAS (Linguagem Brasileira de Sinais)':
     st.session_state['language'] = 'libras'
 else:
     st.session_state['language'] = 'asl'
+
+
+if st.session_state['language'] == 'asl':
+    model_path = './model/mobilenet_cecilia_aug_heavy.keras'
+elif st.session_state['language'] == 'libras':
+    model_path = './model/mobilenet_dani_libras_aug_heavy.keras'
+
+# Caching model
+cache_key = 'signlink_model'
+if cache_key in st.session_state:
+    model = st.session_state[cache_key]
+else:
+    model = keras.models.load_model(model_path)
+    model.predict(np.zeros((1, 224, 224, 3))) # Avoid delay during first real frame inference
+    st.session_state[cache_key] = model
 
 # Initilizing hand detection mediapipe modules
 preprocesing = SignLinkPreprocessing(
@@ -77,35 +86,38 @@ preprocesing = SignLinkPreprocessing(
 last_infer_time = 0
 inference_interval = 1 # seconds
 
-def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
-    global last_infer_time
-    try:
-        img = frame.to_ndarray(format="bgr24")
-        final_displayed_image = img.copy()
+def make_video_frame_callback(model, language):
+    def video_frame_callback(frame: av.VideoFrame) -> av.VideoFrame:
+        global last_infer_time
+        try:
+            img = frame.to_ndarray(format="bgr24")
+            final_displayed_image = img.copy()
 
-        preprocessing_response: SignLinkPreprocessingResponse = preprocesing.model_input_image_full_preprocessing(img)
-        if preprocessing_response.final_image_has_hand_landmark:
-            final_displayed_image = preprocessing_response.image_with_hand_landmarks
-            
-            # Skipping inference every 2 out of 3 frames
-            current_time = time.time()
-            if current_time - last_infer_time > inference_interval:
-                letter = get_letter(model, np.expand_dims(preprocessing_response.model_input_image, axis=0))
+            preprocessing_response: SignLinkPreprocessingResponse = preprocesing.model_input_image_full_preprocessing(img)
+            if preprocessing_response.final_image_has_hand_landmark:
+                final_displayed_image = preprocessing_response.image_with_hand_landmarks
                 
-                last_infer_time = current_time
-                logger.warning(f"Letter: {letter}")
-                # Updating the queue, putting the letter that was discovered by the detection model 
-                if not callback_results.empty():
-                    callback_results.get()
-                callback_results.put(letter)
-            else:
-                logger.info("Skipping frame")
-                 
-        return av.VideoFrame.from_ndarray(final_displayed_image, format="bgr24")
+                # Skipping inference every 2 out of 3 frames
+                current_time = time.time()
+                if current_time - last_infer_time > inference_interval:
+                    letter = get_letter(model, np.expand_dims(preprocessing_response.model_input_image, axis=0), language)
+                    logger.warning("Current language", language)
+                    logger.warning("Number of classes:", model.output_shape[-1])
+                    last_infer_time = current_time
+                    logger.warning(f"Letter: {letter}")
+                    # Updating the queue, putting the letter that was discovered by the detection model 
+                    if not callback_results.empty():
+                        callback_results.get()
+                    callback_results.put(letter)
+                else:
+                    logger.info("Skipping frame")
+                    
+            return av.VideoFrame.from_ndarray(final_displayed_image, format="bgr24")
 
-    except Exception as e:
-        logger.warning(f"Error processing image: {e}")
-        return frame
+        except Exception as e:
+            logger.warning(f"Error processing image: {e}")
+            return frame
+    return video_frame_callback
 
 def define_baseline(palavra):
     # Set initial cache configuration
@@ -237,7 +249,7 @@ if palavra:
     ctx = webrtc_streamer(
         key="webcam",
         mode=WebRtcMode.SENDRECV,
-        video_frame_callback=video_frame_callback,
+        video_frame_callback=make_video_frame_callback(model, st.session_state['language']),
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
         rtc_configuration={
