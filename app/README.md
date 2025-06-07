@@ -8,7 +8,7 @@ A partir da captura da imagem da webcam do usuário, são extraídos as marcaç�
 Assim que o usuário finaliza todas as letras desta palavra, o aprendizado se encerra, apresentando uma mensagem de parabenização.
 
 ### **Como rodar**
-Para rodar esta aplicação, o único requisito é ter Docker instalado.
+Para rodar esta aplicação, é necessário ter Docker instalado e que ele esteja aberto.
 A partir dos seguintes comandos, todos os requisitos (dentro do código *requirements.txt* serão baixados), e você poderá visualizar a aplicação rodando localmente, na URL: http://localhost:8501
 
 Criando uma Docker image com os requisitos do programa
