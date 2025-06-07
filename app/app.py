@@ -22,6 +22,10 @@ from tensorflow.keras.applications.mobilenet import preprocess_input
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
 
+ASL_MODEL_PATH = './model/mobilenet_cecilia_aug_heavy.keras'
+LIBRAS_MODEL_PATH = './model/mobilenet_dani_libras_aug_heavy.keras'
+model_path = './model/mobilenet_cecilia_aug_heavy.keras'
+
 callback_results = queue.Queue()
 green = "#33FF70"
 red = "#FF5733"
@@ -59,22 +63,30 @@ if option == 'ASL (American Sign Language)':
 elif option == 'LIBRAS (Linguagem Brasileira de Sinais)':
     st.session_state['language'] = 'libras'
 else:
-    st.session_state['language'] = 'asl'
+    st.session_state['language'] = 'asl'  # fallback padrão
 
+# Chooses model path based on session state
+language = st.session_state['language']
+model_path = ASL_MODEL_PATH if language == 'asl' else LIBRAS_MODEL_PATH
 
-if st.session_state['language'] == 'asl':
-    model_path = './model/mobilenet_cecilia_aug_heavy.keras'
-elif st.session_state['language'] == 'libras':
-    model_path = './model/mobilenet_dani_libras_aug_heavy.keras'
-
-# Caching model
+# Cache keys
 cache_key = 'signlink_model'
-if cache_key in st.session_state:
-    model = st.session_state[cache_key]
+path_key = 'cached_model_path'
+
+
+cached_model = st.session_state.get(cache_key)
+cached_path = st.session_state.get(path_key)
+
+if cached_model is not None and cached_path == model_path:
+    model = cached_model
+    logger.warning(f'Using cached model for {language.upper()}')
 else:
     model = keras.models.load_model(model_path)
-    model.predict(np.zeros((1, 224, 224, 3))) # Avoid delay during first real frame inference
+    model.predict(np.zeros((1, 224, 224, 3))) 
     st.session_state[cache_key] = model
+    st.session_state[path_key] = model_path
+    logger.warning(f'Loaded and cached model for {language.upper()}')
+
 
 # Initilizing hand detection mediapipe modules
 preprocesing = SignLinkPreprocessing(
@@ -101,8 +113,7 @@ def make_video_frame_callback(model, language):
                 current_time = time.time()
                 if current_time - last_infer_time > inference_interval:
                     letter = get_letter(model, np.expand_dims(preprocessing_response.model_input_image, axis=0), language)
-                    logger.warning("Current language", language)
-                    logger.warning("Number of classes:", model.output_shape[-1])
+                    #logger.warning("Current language", str(language))
                     last_infer_time = current_time
                     logger.warning(f"Letter: {letter}")
                     # Updating the queue, putting the letter that was discovered by the detection model 
@@ -249,7 +260,7 @@ if palavra:
     ctx = webrtc_streamer(
         key="webcam",
         mode=WebRtcMode.SENDRECV,
-        video_frame_callback=make_video_frame_callback(model, st.session_state['language']),
+        video_frame_callback=make_video_frame_callback(st.session_state[cache_key], st.session_state['language']),
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
         rtc_configuration={
