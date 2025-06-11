@@ -8,8 +8,18 @@ A partir da captura da imagem da webcam do usuário, são extraídos as marcaç�
 Assim que o usuário finaliza todas as letras desta palavra, o aprendizado se encerra, apresentando uma mensagem de parabenização.
 
 ### **Como rodar**
-Para rodar esta aplicação, é necessário ter Docker instalado e que ele esteja aberto.
+Para rodar esta aplicação, **é necessário ter Docker instalado e que ele esteja aberto.**
 A partir dos seguintes comandos, todos os requisitos (dentro do código *requirements.txt* serão baixados), e você poderá visualizar a aplicação rodando localmente, na URL: http://localhost:8501
+
+Clone o repositório
+```
+git clone https://github.com/gruporaia/SignLink-dev.git
+```
+
+Após clonar o repositório, navegue até a pasta **/app** (onde está o Dockerfile)
+```
+cd app
+```
 
 Criando uma Docker image com os requisitos do programa
 ```
