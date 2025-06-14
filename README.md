@@ -37,6 +37,7 @@ docker run -p 8501:8501 signlink:latest
 ---
 
 ### 🤝 Parceria
-| ![SignLink](https://signlinkproject.github.io/images/logo.png) |  Este projeto foi desenvolvido em colaboração com a **SignLink**, uma startup brasileira encubada pela StartFellowship dedicada à promoção da acessibilidade e inclusão por meio do desenvolvimento de tecnologias para a comunicação em Línguas de Sinais. Para saber mais, acesse o [site](https://signlinkproject.github.io/index.html) ou o [LinkedIn](https://br.linkedin.com/company/sign-link-project)! |
+| <img src="https://github.com/gruporaia/SpellNet/raw/main/images/sign_link_project_logo.jpeg" alt="SignLink" width="500"/> |  Este projeto foi desenvolvido em colaboração com a **SignLink**, uma startup brasileira encubada pela StartFellowship dedicada à promoção da acessibilidade e inclusão por meio do desenvolvimento de tecnologias para a comunicação em Línguas de Sinais. Para saber mais, acesse o [site](https://signlinkproject.github.io/index.html) ou o [LinkedIn](https://br.linkedin.com/company/sign-link-project)! |
 |------------------|-------------------------------------------|
+
 
