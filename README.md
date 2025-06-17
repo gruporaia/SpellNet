@@ -38,8 +38,11 @@ Durante o **pré-processamento**, as imagens são normalizadas, redimensionadas 
 
 O pipeline completo de pré-processamento e funcionamento da aplicação é ilustrado nos diagramas abaixo:
 
-[DIAGRAMA FUNCIONAL DA APLICAÇÃO]  
-[DIAGRAMA DO PIPELINE DE TREINAMENTO]
+![Pipeline da Interface](./images/001-Pipeline-Interface.png)  
+*Figura 1 – Pipeline da aplicação*
+
+![Pipeline de Dados](./images/001-Pipeline-Dados.png)  
+*Figura 2 – Pipeline de dados*
 
 ---
 
@@ -89,11 +92,9 @@ O projeto resultou no desenvolvimento de uma aplicação funcional para o reconh
 
 O gráfico a seguir mostra a acurácia do modelo de ASL ao longo de sete iterações de treinamento. As duas primeiras utilizaram _datasets_ públicos ([link]), enquanto as demais foram geradas a partir de diferentes estratégias de pré-processamento dos vídeos. A última iteração utiliza o _pipeline_ completo descrito neste repositório.
 
-[IMAGEM]
+![Acurácia por Iterações de treinamento](./images/001-Grafico-Treinamentos.png)  
 
-O vídeo abaixo demonstra o funcionamento da aplicação:
-
-[VÍDEO]
+[Clique aqui para acessar o vídeo de demonstração da aplicação](./demo_asl.mp4)
 
 ### Próximos passos
 
