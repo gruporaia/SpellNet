@@ -94,7 +94,7 @@ O gráfico a seguir mostra a acurácia do modelo de ASL ao longo de sete iteraç
 
 ![Acurácia por Iterações de treinamento](./images/001-Grafico-Treinamentos.png)  
 
-[Clique aqui para acessar o vídeo de demonstração da aplicação](./demo_asl.mp4)
+[Clique aqui para assistir ao vídeo de demonstração](https://youtu.be/rYjGjfw7ID8)
 
 ### Próximos passos
 
